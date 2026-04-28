@@ -1,6 +1,24 @@
 ### 一、Sing-box-yg精装桶一键五协议共存脚本（VPS专用）
 ### 二、Serv00/Hostuno-sb-yg多平台一键三协议共存脚本（Serv00/Hostuno专用）
 
+### 安全更新说明
+
+* 网页管理接口现已要求携带访问凭据。`/up`、`/re`、`/rp`、`/jc` 需要通过查询参数 `?token=...` 或请求头 `x-web-token` 提供令牌。
+
+* 订阅信息不再通过固定 `/list/key` 路径读取；请使用 `/list/你的uuid`，或显式设置 `LIST_ACCESS_KEY` 后再访问对应路径。
+
+* 如未设置 `WEB_TOKEN`，脚本默认使用当前生成的 `UUID.txt` 作为网页管理令牌。建议安装后尽快为 Node 服务单独设置 `WEB_TOKEN` 和 `LIST_ACCESS_KEY`。
+
+* Node 服务默认监听 `127.0.0.1`。如需通过 Serv00/Hostuno 公网域名访问管理接口，请显式设置 `SERVER_HOST=0.0.0.0`，并确保 `WEB_TOKEN` 足够长且不会出现在公开页面或日志中。
+
+* `sb.sh` 中“开放端口，关闭防火墙”已改为高危操作，默认跳过且必须二次确认；除非你明确知道自己在做什么，否则不要关闭整机防火墙。
+
+* `serv00.yml`、`SSH.yml` 与 `kp.sh` 不再建议把账号、密码、Token 直接写进仓库。请分别使用仓库 secrets 或环境变量：`SERV00_ACCOUNTS_JSON`、`SSH_ACCOUNTS_JSON`、`ACCOUNTS_JSON`、`KNOWN_HOSTS`。
+
+* 脚本默认从 `https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main` 拉取已审查文件。如需切换来源，请显式设置 `RAW_REPO_URL`，不要回退到未审查的上游 `main`。
+
+* 如果使用 Github Actions 或 Workers 保活，请把访问 URL 改成携带 token 的形式，例如 `http://example.serv00.net/up?token=你的WEB_TOKEN`。
+
 ### 注：本项目分享订阅节点都为本地化生成，不使用节点转换、订阅器等第三方外链引用，无需担心节点订阅被外链作者查看
 
 ### 交流平台：[甬哥博客地址](https://ygkkk.blogspot.com)、[甬哥YouTube频道](https://www.youtube.com/@ygkkk)、[甬哥TG电报群组](https://t.me/+jZHc6-A-1QQ5ZGVl)、[甬哥TG电报频道](https://t.me/+DkC9ZZUgEFQzMTZl)
@@ -42,11 +60,11 @@
 ### VPS专用一键脚本如下：快捷方式：```sb```
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/sb.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main/sb.sh)
 ```
 或者
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/sb.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main/sb.sh)
 ```
 
 ### Sing-box-yg脚本界面预览图（注：相关参数随意填写，仅供围观）
@@ -86,7 +104,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/sb.
 * Argo高度自定义：可以重置临时隧道; 可以继续使用上回的固定隧道; 也可以更换固定隧道的域名或token
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main/serv00.sh)
 ```
 
 #### Serv00/Hostuno-sb-yg脚本界面预览图，仅限方案一的SSH端安装脚本（注：仅供围观）

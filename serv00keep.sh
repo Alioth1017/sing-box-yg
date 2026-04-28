@@ -21,29 +21,52 @@ export IP=${IP:-''}
 export reym=${reym:-''}
 export reset=${reset:-''}
 export resport=${resport:-''}
+RAW_REPO_URL=${RAW_REPO_URL:-https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main}
 devil binexec on >/dev/null 2>&1
 USERNAME=$(whoami | tr '[:upper:]' '[:lower:]')
 HOSTNAME=$(hostname)
 snb=$(hostname | cut -d. -f1)
 nb=$(hostname | cut -d '.' -f 1 | tr -d 's')
+FILE_PATH="${HOME}/domains/${USERNAME}.serv00.net/public_html"
+WORKDIR="${HOME}/domains/${USERNAME}.serv00.net/logs"
+keep_path="${HOME}/domains/${snb}.${USERNAME}.serv00.net/public_nodejs"
+
+cleanup_generated_files() {
+rm -rf "$WORKDIR"
+rm -f "$HOME/bin/sb" "$HOME/serv00keep.sh" "$HOME/webport.sh" "$FILE_PATH/index.html"
+rm -f "$keep_path/app.js"
+if [ -d "$FILE_PATH" ]; then
+find "$FILE_PATH" -maxdepth 1 -type f \( -name '*_v2sub.txt' -o -name '*_clashmeta.txt' -o -name '*_singbox.txt' \) -delete 2>/dev/null
+fi
+}
+
+web_token_query() {
+local token="${WEB_TOKEN:-}"
+if [[ -z "$token" && -n "$UUID" ]]; then
+token="$UUID"
+elif [[ -z "$token" && -f "$WORKDIR/UUID.txt" ]]; then
+token=$(cat "$WORKDIR/UUID.txt" 2>/dev/null)
+fi
+if [[ -n "$token" ]]; then
+printf '?token=%s' "$token"
+fi
+}
+
+call_up_endpoint() {
+curl -sk "http://${snb}.${USERNAME}.serv00.net/up$(web_token_query)" > /dev/null 2>&1
+}
+
 if [[ "$reset" =~ ^[Yy]$ ]]; then
 bash -c 'ps aux | grep $(whoami) | grep -v "sshd\|bash\|grep" | awk "{print \$2}" | xargs -r kill -9 >/dev/null 2>&1' >/dev/null 2>&1
 devil www list | awk 'NR > 1 && NF {print $1}' | xargs -I {} devil www del {} > /dev/null 2>&1
 sed -i '/export PATH="\$HOME\/bin:\$PATH"/d' "${HOME}/.bashrc" >/dev/null 2>&1
 source "${HOME}/.bashrc" >/dev/null 2>&1
-find ~ -type f -exec chmod 644 {} \; 2>/dev/null
-find ~ -type d -exec chmod 755 {} \; 2>/dev/null
-find ~ -type f -exec rm -f {} \; 2>/dev/null
-find ~ -type d -empty -exec rmdir {} \; 2>/dev/null
-find ~ -exec rm -rf {} \; 2>/dev/null
+cleanup_generated_files
 echo "重置系统完成"
 fi
 devil www add ${USERNAME}.serv00.net php > /dev/null 2>&1
-FILE_PATH="${HOME}/domains/${USERNAME}.serv00.net/public_html"
-WORKDIR="${HOME}/domains/${USERNAME}.serv00.net/logs"
 [ -d "$FILE_PATH" ] || mkdir -p "$FILE_PATH"
-[ -d "$WORKDIR" ] || (mkdir -p "$WORKDIR" && chmod 777 "$WORKDIR")
-keep_path="${HOME}/domains/${snb}.${USERNAME}.serv00.net/public_nodejs"
+[ -d "$WORKDIR" ] || (mkdir -p "$WORKDIR" && chmod 700 "$WORKDIR")
 [ -d "$keep_path" ] || mkdir -p "$keep_path"
 
 if [[ -z "$ARGO_AUTH" ]] && [[ -f "$WORKDIR/ARGO_AUTH.log" ]]; then
@@ -72,11 +95,12 @@ else
 echo "$UUID" > $WORKDIR/UUID.txt
 UUID=$(cat "$WORKDIR/UUID.txt" 2>/dev/null)
 fi
-curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/app.js -o "$keep_path"/app.js
-sed -i '' "15s/name/$snb/g" "$keep_path"/app.js
-sed -i '' "59s/key/$UUID/g" "$keep_path"/app.js
-sed -i '' "90s/name/$USERNAME/g" "$keep_path"/app.js
-sed -i '' "90s/where/$snb/g" "$keep_path"/app.js
+curl -sL "$RAW_REPO_URL/app.js" -o "$keep_path"/app.js
+cat > "$keep_path/.env" <<EOF
+WEB_TOKEN=$UUID
+LIST_ACCESS_KEY=$UUID
+SERVER_HOST=0.0.0.0
+EOF
 if [[ -z "$reym" ]] && [[ -f "$WORKDIR/reym.txt" ]]; then
 reym=$(cat "$WORKDIR/reym.txt" 2>/dev/null)
 elif [[ -z "$reym" ]] && [[ ! -f "$WORKDIR/reym.txt" ]]; then
@@ -113,7 +137,7 @@ sed -i '' -e "18s|'$vmp'|'$vmess_port'|" serv00keep.sh
 sed -i '' -e "19s|'$hyp'|'$hy2_port'|" serv00keep.sh
 ps aux | grep '[r]un -c con' | awk '{print $2}' | xargs -r kill -9 > /dev/null 2>&1
 sleep 1
-curl -sk "http://${snb}.${USERNAME}.serv00.net/up" > /dev/null 2>&1
+call_up_endpoint
 sleep 5
 }
 
@@ -244,7 +268,7 @@ get_argodomain() {
 }
 
 if [ ! -f serv00keep.sh ]; then
-curl -sSL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00keep.sh -o serv00keep.sh && chmod +x serv00keep.sh
+curl -sSL "$RAW_REPO_URL/serv00keep.sh" -o serv00keep.sh && chmod +x serv00keep.sh
 echo '#!/bin/bash
 red() { echo -e "\e[1;91m$1\033[0m"; }
 green() { echo -e "\e[1;32m$1\033[0m"; }
@@ -1209,7 +1233,7 @@ EOF
 
 cat clash_meta.yaml > ${FILE_PATH}/${UUID}_clashmeta.txt
 cat sing_box.json > ${FILE_PATH}/${UUID}_singbox.txt
-curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/index.html -o "$FILE_PATH"/index.html
+curl -sL https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main/index.html -o "$FILE_PATH"/index.html
 V2rayN_LINK="https://${USERNAME}.serv00.net/${UUID}_v2sub.txt"
 Clashmeta_LINK="https://${USERNAME}.serv00.net/${UUID}_clashmeta.txt"
 Singbox_LINK="https://${USERNAME}.serv00.net/${UUID}_singbox.txt"

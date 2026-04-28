@@ -3,14 +3,47 @@
 # 如果你已安装了Serv00本地SSH脚本，不要再运行此脚本部署了，这样会造成进程爆满，必须二选一！
 # serv00变量添加规则：
 # 如使用保活网页，请不要启用cron，以防止cron与网页保活重复运行造成进程爆满
-# RES(必填)：n表示每次不重置部署，y表示每次重置部署。REP(必填)：n表示不重置随机端口(三个端口留空)，y表示重置端口(三个端口留空)。SSH_USER(必填)表示serv00账号名。SSH_PASS(必填)表示serv00密码。REALITY表示reality域名(留空表示serv00官方域名：你serv00账号名.serv00.net)。SUUID表示uuid(留空表示随机uuid)。TCP1_PORT表示vless的tcp端口(留空表示随机tcp端口)。TCP2_PORT表示vmess的tcp端口(留空表示随机tcp端口)。UDP_PORT表示hy2的udp端口(留空表示随机udp端口)。HOST(必填)表示登录serv00服务器域名。ARGO_DOMAIN表示argo固定域名(留空表示临时域名)。ARGO_AUTH表示argo固定域名token(留空表示临时域名)。
-# 必填变量：RES、REP、SSH_USER、SSH_PASS、HOST
-# 注意[]"",:这些符号不要乱删，按规律对齐
-# 每行一个{serv00服务器}，一个服务也可，末尾用,间隔，最后一个服务器末尾无需用,间隔
-ACCOUNTS='[
-{"RES":"n", "REP":"n", "SSH_USER":"你的serv00账号名", "SSH_PASS":"你的serv00账号密码", "REALITY":"你serv00账号名.serv00.net", "SUUID":"自设UUID", "TCP1_PORT":"vless的tcp端口", "TCP2_PORT":"vmess的tcp端口", "UDP_PORT":"hy2的udp端口", "HOST":"s1.serv00.com", "ARGO_DOMAIN":"", "ARGO_AUTH":""},
-{"RES":"y", "REP":"y", "SSH_USER":"123456", "SSH_PASS":"7890000", "REALITY":"time.is", "SUUID":"73203ee6-b3fa-4a3d-b5df-6bb2f55073ad", "TCP1_PORT":"", "TCP2_PORT":"", "UDP_PORT":"", "HOST":"s16.serv00.com", "ARGO_DOMAIN":"你的argo固定域名", "ARGO_AUTH":"eyJhIjoiOTM3YzFjYWI88552NTFiYTM4ZTY0ZDQzRmlNelF0TkRBd1pUQTRNVEJqTUdVeCJ9"}
-]'
+# 请通过环境变量 ACCOUNTS_JSON 提供 JSON 数组，避免把账号、密码和 Token 写进脚本文件。
+# 可选：通过 KNOWN_HOSTS 提供 SSH known_hosts 内容；通过 RAW_REPO_URL 指定已审计脚本来源。
+ACCOUNTS=${ACCOUNTS_JSON:-${ACCOUNTS:-}}
+RAW_REPO_URL=${RAW_REPO_URL:-https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main}
+
+if [[ -z "$ACCOUNTS" ]]; then
+  echo "请先设置 ACCOUNTS_JSON 环境变量"
+  exit 1
+fi
+
+validate_required() {
+  local value=$1
+  local field_name=$2
+  if [[ -z "$value" ]]; then
+    echo "$field_name 不能为空"
+    exit 1
+  fi
+}
+
+validate_regex() {
+  local value=$1
+  local pattern=$2
+  local field_name=$3
+  if [[ -n "$value" && ! "$value" =~ $pattern ]]; then
+    echo "$field_name 格式无效"
+    exit 1
+  fi
+}
+
+setup_ssh_options() {
+  SSH_OPTIONS=(-o StrictHostKeyChecking=accept-new)
+  if [[ -n "${KNOWN_HOSTS:-}" ]]; then
+    local known_hosts_file="${TMPDIR:-/tmp}/sing-box-yg-known-hosts"
+    printf '%s\n' "$KNOWN_HOSTS" > "$known_hosts_file"
+    chmod 600 "$known_hosts_file"
+    SSH_OPTIONS=(-o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts_file")
+  fi
+}
+
+setup_ssh_options
+
 run_remote_command() {
 local RES=$1
 local REP=$2
@@ -29,9 +62,9 @@ local ARGO_AUTH=${12}
   else
     echo "Argo已设置固定域名：${ARGO_DOMAIN}"
   fi
-  remote_command="export reym=$REALITY UUID=$SUUID vless_port=$TCP1_PORT vmess_port=$TCP2_PORT hy2_port=$UDP_PORT reset=$RES resport=$REP ARGO_DOMAIN=${ARGO_DOMAIN} ARGO_AUTH=${ARGO_AUTH} && bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00keep.sh)"
-  echo "Executing remote command on $HOST as $SSH_USER with command: $remote_command"
-  sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" "$remote_command"
+  printf -v remote_command 'export reym=%q UUID=%q vless_port=%q vmess_port=%q hy2_port=%q reset=%q resport=%q ARGO_DOMAIN=%q ARGO_AUTH=%q RAW_REPO_URL=%q && bash <(curl -Ls %q/serv00keep.sh)' \
+    "$REALITY" "$SUUID" "$TCP1_PORT" "$TCP2_PORT" "$UDP_PORT" "$RES" "$REP" "$ARGO_DOMAIN" "$ARGO_AUTH" "$RAW_REPO_URL" "$RAW_REPO_URL"
+  sshpass -p "$SSH_PASS" ssh "${SSH_OPTIONS[@]}" "$SSH_USER@$HOST" "$remote_command"
 }
 if  cat /etc/issue /proc/version /etc/os-release 2>/dev/null | grep -q -E -i "openwrt"; then
 opkg update
@@ -72,23 +105,41 @@ echo "*****************************************************"
               UDP_PORT=$(echo $account | jq -r '.UDP_PORT')
               HOST=$(echo $account | jq -r '.HOST')
               ARGO_DOMAIN=$(echo $account | jq -r '.ARGO_DOMAIN')
-              ARGO_AUTH=$(echo $account | jq -r '.ARGO_AUTH') 
-          if sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" -q exit; then
+                ARGO_AUTH=$(echo $account | jq -r '.ARGO_AUTH')
+                validate_required "$RES" "RES"
+                validate_required "$REP" "REP"
+                validate_required "$SSH_USER" "SSH_USER"
+                validate_required "$SSH_PASS" "SSH_PASS"
+                validate_required "$HOST" "HOST"
+                validate_regex "$SSH_USER" '^[A-Za-z0-9._-]+$' "SSH_USER"
+                validate_regex "$HOST" '^[A-Za-z0-9.-]+$' "HOST"
+                validate_regex "$REALITY" '^[A-Za-z0-9.-]*$' "REALITY"
+                validate_regex "$SUUID" '^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' "SUUID"
+                validate_regex "$TCP1_PORT" '^$|^[0-9]{1,5}$' "TCP1_PORT"
+                validate_regex "$TCP2_PORT" '^$|^[0-9]{1,5}$' "TCP2_PORT"
+                validate_regex "$UDP_PORT" '^$|^[0-9]{1,5}$' "UDP_PORT"
+                validate_regex "$ARGO_DOMAIN" '^[A-Za-z0-9.-]*$' "ARGO_DOMAIN"
+                validate_regex "$ARGO_AUTH" '^[A-Za-z0-9._=-]*$' "ARGO_AUTH"
+              if sshpass -p "$SSH_PASS" ssh "${SSH_OPTIONS[@]}" "$SSH_USER@$HOST" -q exit; then
             echo "🎉恭喜！✅第【$count】台服务器连接成功！🚀服务器地址：$HOST ，账户名：$SSH_USER"   
           if [ -z "${ARGO_DOMAIN}" ]; then
            check_process="ps aux | grep '[c]onfig' > /dev/null && ps aux | grep [l]ocalhost:$TCP2_PORT > /dev/null"
             else
            check_process="ps aux | grep '[c]onfig' > /dev/null && ps aux | grep '[t]oken $ARGO_AUTH' > /dev/null"
            fi
-          if ! sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" "$check_process" || [[ "$RES" =~ ^[Yy]$ ]]; then
+          if ! sshpass -p "$SSH_PASS" ssh "${SSH_OPTIONS[@]}" "$SSH_USER@$HOST" "$check_process" || [[ "$RES" =~ ^[Yy]$ ]]; then
             echo "⚠️检测到主进程或者argo进程未启动，或者执行重置"
              echo "⚠️现在开始修复或重置部署……请稍等"
-             output=$(run_remote_command "$RES" "$REP" "$SSH_USER" "$SSH_PASS" "${REALITY}" "$SUUID" "$TCP1_PORT" "$TCP2_PORT" "$UDP_PORT" "$HOST" "${ARGO_DOMAIN}" "${ARGO_AUTH}")
-            echo "远程命令执行结果：$output"
+             if run_remote_command "$RES" "$REP" "$SSH_USER" "$SSH_PASS" "${REALITY}" "$SUUID" "$TCP1_PORT" "$TCP2_PORT" "$UDP_PORT" "$HOST" "${ARGO_DOMAIN}" "$ARGO_AUTH"; then
+               echo "✅远程修复或重置执行完成"
+             else
+               echo "远程修复或重置执行失败"
+               exit 1
+             fi
           else
             echo "🎉恭喜！✅检测到所有进程正常运行中 "
             SSH_USER_LOWER=$(echo "$SSH_USER" | tr '[:upper:]' '[:lower:]')
-            sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" "
+            sshpass -p "$SSH_PASS" ssh "${SSH_OPTIONS[@]}" "$SSH_USER@$HOST" "
             echo \"配置显示如下：\"
             cat domains/${SSH_USER_LOWER}.serv00.net/logs/list.txt
             echo \"====================================================\""

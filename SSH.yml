@@ -1,4 +1,7 @@
 name: Keep Servers serv00
+permissions:
+  contents: read
+
 on:
   schedule:
    - cron: '0 15 */8 * *'
@@ -8,13 +11,11 @@ jobs:
   keep_servers_alive:
     runs-on: ubuntu-latest
     env:
-      ACCOUNTS: >
-        [
-        {"SSH_USER":"123456789", "SSH_PASS":"123456", "HOST":"sxxx.serv00.com"}
-        ]
+      ACCOUNTS: ${{ secrets.SSH_ACCOUNTS_JSON }}
+      KNOWN_HOSTS: ${{ secrets.KNOWN_HOSTS }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install required packages
         run: |
@@ -23,6 +24,19 @@ jobs:
 
       - name: Process each account
         run: |
+           if [[ -z "${ACCOUNTS}" ]]; then
+             echo "::error::Missing secret SSH_ACCOUNTS_JSON"
+             exit 1
+           fi
+
+           SSH_OPTIONS=(-o StrictHostKeyChecking=accept-new)
+           if [[ -n "${KNOWN_HOSTS}" ]]; then
+             KNOWN_HOSTS_FILE="$RUNNER_TEMP/known_hosts"
+             printf '%s\n' "${KNOWN_HOSTS}" > "$KNOWN_HOSTS_FILE"
+             chmod 600 "$KNOWN_HOSTS_FILE"
+             SSH_OPTIONS=(-o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE")
+           fi
+
            echo "*****************************************************"
            echo "*****************************************************"
            echo "甬哥Github项目  ：github.com/yonggekkk"
@@ -37,7 +51,15 @@ jobs:
               SSH_USER=$(echo $account | jq -r '.SSH_USER')
               SSH_PASS=$(echo $account | jq -r '.SSH_PASS')
               HOST=$(echo $account | jq -r '.HOST')
-           if sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" -q exit; then
+              if [[ -z "$SSH_USER" || -z "$SSH_PASS" || -z "$HOST" ]]; then
+                echo "::error::SSH_USER, SSH_PASS, HOST are required"
+                exit 1
+              fi
+              if [[ ! "$SSH_USER" =~ ^[A-Za-z0-9._-]+$ || ! "$HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+                echo "::error::Invalid SSH account format"
+                exit 1
+              fi
+           if sshpass -p "$SSH_PASS" ssh "${SSH_OPTIONS[@]}" "$SSH_USER@$HOST" -q exit; then
             echo "🎉恭喜！✅第【$count】台服务器连接成功！🚀服务器地址：$HOST ，账户名：$SSH_USER" 
            else
             echo "===================================================="

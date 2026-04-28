@@ -9,6 +9,25 @@ green() { echo -e "\e[1;32m$1\033[0m"; }
 yellow() { echo -e "\e[1;33m$1\033[0m"; }
 purple() { echo -e "\e[1;35m$1\033[0m"; }
 reading() { read -p "$(red "$1")" "$2"; }
+
+is_valid_ip() {
+[[ "$1" =~ ^[A-Fa-f0-9:.]+$ ]]
+}
+
+is_valid_uuid() {
+[[ "$1" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+}
+
+is_valid_hostname() {
+[[ "$1" =~ ^[A-Za-z0-9.-]+$ ]]
+}
+
+is_valid_argo_token() {
+[[ "$1" =~ ^[A-Za-z0-9._=-]+$ ]]
+}
+
+RAW_REPO_URL=${RAW_REPO_URL:-https://raw.githubusercontent.com/Alioth1017/sing-box-yg/main}
+
 USERNAME=$(whoami | tr '[:upper:]' '[:lower:]')
 snb=$(hostname | cut -d. -f1)
 nb=$(hostname | cut -d '.' -f 1 | tr -d 's')
@@ -25,9 +44,24 @@ WORKDIR="${HOME}/domains/${USERNAME}.${address}/logs"
 devil www add ${USERNAME}.${address} php > /dev/null 2>&1
 FILE_PATH="${HOME}/domains/${USERNAME}.${address}/public_html"
 [ -d "$FILE_PATH" ] || mkdir -p "$FILE_PATH"
-[ -d "$WORKDIR" ] || (mkdir -p "$WORKDIR" && chmod 777 "$WORKDIR")
+[ -d "$WORKDIR" ] || (mkdir -p "$WORKDIR" && chmod 700 "$WORKDIR")
 devil binexec on >/dev/null 2>&1
-curl -sk "http://${snb}.${USERNAME}.${hona}.net/up" > /dev/null 2>&1
+
+web_token_query() {
+local token="${WEB_TOKEN:-}"
+if [[ -z "$token" && -f "$WORKDIR/UUID.txt" ]]; then
+token=$(cat "$WORKDIR/UUID.txt" 2>/dev/null)
+fi
+if [[ -n "$token" ]]; then
+printf '?token=%s' "$token"
+fi
+}
+
+call_up_endpoint() {
+curl -sk "http://${snb}.${USERNAME}.${hona}.net/up$(web_token_query)" > /dev/null 2>&1
+}
+
+call_up_endpoint
 
 read_ip() {
 cat ip.txt
@@ -41,6 +75,10 @@ IP=$(head -n 1 ip.txt | awk -F ':' '{print $1}')
 fi
 fi
 fi
+if ! is_valid_ip "$IP"; then
+red "IP 格式无效，请重新输入" && read_ip
+return
+fi
 echo "$IP" > $WORKDIR/ipone.txt
 IP=$(<$WORKDIR/ipone.txt)
 green "你选择的IP为: $IP"
@@ -50,6 +88,10 @@ read_uuid() {
 reading "请输入统一的uuid密码 (建议回车默认随机): " UUID
 if [[ -z "$UUID" ]]; then
 UUID=$(uuidgen -r)
+fi
+if ! is_valid_uuid "$UUID"; then
+red "UUID 格式无效，请重新输入" && read_uuid
+return
 fi
 echo "$UUID" > $WORKDIR/UUID.txt
 UUID=$(<$WORKDIR/UUID.txt)
@@ -65,6 +107,10 @@ if [[ -z "$reym" ]]; then
 reym=$USERNAME.${address}
 elif [[ "$reym" == "s" || "$reym" == "S" ]]; then
 reym=blog.cloudflare.com
+fi
+if ! is_valid_hostname "$reym"; then
+red "域名格式无效，请重新输入" && read_reym
+return
 fi
 echo "$reym" > $WORKDIR/reym.txt
 reym=$(<$WORKDIR/reym.txt)
@@ -233,18 +279,31 @@ sleep 2
         kill -9 $(ps -o ppid= -p $$) >/dev/null 2>&1
 }
 
+cleanup_generated_files() {
+  rm -rf "$WORKDIR"
+  rm -f "$HOME/bin/sb" "$HOME/serv00keep.sh" "$HOME/webport.sh" "$FILE_PATH/index.html"
+
+  if [ -n "$keep_path" ]; then
+    rm -f "$keep_path/app.js"
+  fi
+
+  if [ -d "$FILE_PATH" ]; then
+    find "$FILE_PATH" -maxdepth 1 -type f \( -name '*_v2sub.txt' -o -name '*_clashmeta.txt' -o -name '*_singbox.txt' \) -delete 2>/dev/null
+  fi
+}
+
 uninstall_singbox() {
   reading "\n确定要卸载吗？【y/n】: " choice
     case "$choice" in
        [Yy])
 	  bash -c 'ps aux | grep $(whoami) | grep -v "sshd\|bash\|grep" | awk "{print \$2}" | xargs -r kill -9 >/dev/null 2>&1' >/dev/null 2>&1
-          rm -rf bin domains serv00keep.sh webport.sh
+	  cleanup_generated_files
 	  devil www list | awk 'NR > 1 && NF {print $1}' | xargs -I {} devil www del {} > /dev/null 2>&1
 	  sed -i '' '/export PATH="\$HOME\/bin:\$PATH"/d' ~/.bashrc
           source ~/.bashrc
           purple "************************************************************"
           purple "Serv00/Hostuno-sb-yg卸载完成！"
-          purple "欢迎继续使用脚本：bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00.sh)"
+          purple "欢迎继续使用脚本：bash <(curl -Ls ${RAW_REPO_URL}/serv00.sh)"
           purple "************************************************************"
           ;;
         [Nn]) exit 0 ;;
@@ -258,18 +317,14 @@ reading "\n注意！！！清理所有进程并清空所有安装内容，将退
     [Yy]) 
     bash -c 'ps aux | grep $(whoami) | grep -v "sshd\|bash\|grep" | awk "{print \$2}" | xargs -r kill -9 >/dev/null 2>&1' >/dev/null 2>&1
     devil www list | awk 'NR > 1 && NF {print $1}' | xargs -I {} devil www del {} > /dev/null 2>&1
+    cleanup_generated_files
     sed -i '' '/export PATH="\$HOME\/bin:\$PATH"/d' ~/.bashrc
     source ~/.bashrc
     purple "************************************************************"
     purple "Serv00/Hostuno-sb-yg清理重置完成！"
-    purple "欢迎继续使用脚本：bash <(curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00.sh)"
+    purple "欢迎继续使用脚本：bash <(curl -Ls ${RAW_REPO_URL}/serv00.sh)"
     purple "************************************************************"
-    find ~ -type f -exec chmod 644 {} \; 2>/dev/null
-    find ~ -type d -exec chmod 755 {} \; 2>/dev/null
-    find ~ -type f -exec rm -f {} \; 2>/dev/null
-    find ~ -type d -empty -exec rmdir {} \; 2>/dev/null
-    find ~ -exec rm -rf {} \; 2>/dev/null
-    killall -9 -u $(whoami)
+    bash -c 'ps aux | grep $(whoami) | grep -v "sshd\|bash\|grep" | awk "{print \$2}" | xargs -r kill -9 >/dev/null 2>&1' >/dev/null 2>&1
     ;;
     *) menu ;;
   esac
@@ -286,9 +341,17 @@ argo_configure() {
     fi
     if [[ "$argo_choice" == "g" || "$argo_choice" == "G" ]]; then
         reading "请输入argo固定隧道域名: " ARGO_DOMAIN
+  if ! is_valid_hostname "$ARGO_DOMAIN"; then
+      red "Argo 固定隧道域名格式无效，请重新输入"
+      continue
+  fi
 	echo "$ARGO_DOMAIN" | tee ARGO_DOMAIN.log ARGO_DOMAIN_show.log > /dev/null
         green "你的argo固定隧道域名为: $ARGO_DOMAIN"
         reading "请输入argo固定隧道密钥（当你粘贴Token时，必须以ey开头）: " ARGO_AUTH
+  if ! is_valid_argo_token "$ARGO_AUTH"; then
+      red "Argo 固定隧道密钥格式无效，请重新输入"
+      continue
+  fi
 	echo "$ARGO_AUTH" | tee ARGO_AUTH.log ARGO_AUTH_show.log > /dev/null
         green "你的argo固定隧道密钥为: $ARGO_AUTH"
 	rm -rf boot.log
@@ -1363,7 +1426,7 @@ cd "$keep_path"
 npm install basic-auth express dotenv axios --silent > /dev/null 2>&1
 rm $HOME/domains/${snb}.${USERNAME}.${hona}.net/public_nodejs/public/index.html > /dev/null 2>&1
 devil www restart ${snb}.${USERNAME}.${hona}.net
-curl -sk "http://${snb}.${USERNAME}.${hona}.net/up" > /dev/null 2>&1
+call_up_endpoint
 green "安装完毕，多功能主页地址：http://${snb}.${USERNAME}.${hona}.net" && sleep 2
 }
 
@@ -1393,7 +1456,7 @@ if [[ -e $WORKDIR/config.json ]]; then
   COMMAND="sb"
   SCRIPT_PATH="$HOME/bin/$COMMAND"
   mkdir -p "$HOME/bin"
-  curl -Ls https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00.sh > "$SCRIPT_PATH"
+  curl -Ls "$RAW_REPO_URL/serv00.sh" > "$SCRIPT_PATH"
   chmod +x "$SCRIPT_PATH"
 if [[ ":$PATH:" != *":$HOME/bin:"* ]]; then
     echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.bashrc"
@@ -1401,15 +1464,16 @@ if [[ ":$PATH:" != *":$HOME/bin:"* ]]; then
     source ~/.bashrc
 fi
 if [ "$hona" = "serv00" ]; then
-curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/app.js -o "$keep_path"/app.js
-sed -i '' "15s/name/$snb/g" "$keep_path"/app.js
-sed -i '' "59s/key/$UUID/g" "$keep_path"/app.js
-sed -i '' "90s/name/$USERNAME/g" "$keep_path"/app.js
-sed -i '' "90s/where/$snb/g" "$keep_path"/app.js
-curl -sSL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/serv00keep.sh -o serv00keep.sh && chmod +x serv00keep.sh
+curl -sL "$RAW_REPO_URL/app.js" -o "$keep_path"/app.js
+cat > "$keep_path/.env" <<EOF
+WEB_TOKEN=$UUID
+LIST_ACCESS_KEY=$UUID
+SERVER_HOST=0.0.0.0
+EOF
+curl -sSL "$RAW_REPO_URL/serv00keep.sh" -o serv00keep.sh && chmod +x serv00keep.sh
 fi
-curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/index.html -o "$FILE_PATH"/index.html
-curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/sversion | awk -F "更新内容" '{print $1}' | head -n 1 > $WORKDIR/v
+curl -sL "$RAW_REPO_URL/index.html" -o "$FILE_PATH"/index.html
+curl -sL "$RAW_REPO_URL/sversion" | awk -F "更新内容" '{print $1}' | head -n 1 > $WORKDIR/v
 else
 red "未安装脚本，请选择1进行安装" && exit
 fi
@@ -1421,7 +1485,7 @@ yellow "重启中……请稍后……"
 cd $WORKDIR
 ps aux | grep '[r]un -c con' | awk '{print $2}' | xargs -r kill -9 > /dev/null 2>&1
 if [ "$hona" = "serv00" ]; then
-curl -sk "http://${snb}.${USERNAME}.${hona}.net/up" > /dev/null 2>&1
+call_up_endpoint
 sleep 5
 else
 sbb=$(cat sb.txt)
@@ -1573,14 +1637,14 @@ yellow "未设置端口"
 fi
 echo
 insV=$(cat $WORKDIR/v 2>/dev/null)
-latestV=$(curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/sversion | awk -F "更新内容" '{print $1}' | head -n 1)
+latestV=$(curl -sL "$RAW_REPO_URL/sversion" | awk -F "更新内容" '{print $1}' | head -n 1)
 if [ -f $WORKDIR/v ]; then
 if [ "$insV" = "$latestV" ]; then
 echo -e "当前 Serv00/Hostuno-sb-yg 脚本最新版：${purple}${insV}${re} (已安装)"
 else
 echo -e "当前 Serv00/Hostuno-sb-yg 脚本版本号：${purple}${insV}${re}"
 echo -e "检测到最新 Serv00/Hostuno-sb-yg 脚本版本号：${yellow}${latestV}${re} (可选择5进行更新)"
-echo -e "${yellow}$(curl -sL https://raw.githubusercontent.com/yonggekkk/sing-box-yg/main/sversion)${re}"
+echo -e "${yellow}$(curl -sL "$RAW_REPO_URL/sversion")${re}"
 fi
 echo -e "========================================================="
 sbb=$(cat $WORKDIR/sb.txt 2>/dev/null)

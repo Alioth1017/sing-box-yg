@@ -1,5 +1,8 @@
 name: Parallel URL Fetch
 
+permissions:
+  contents: read
+
 on:
  # schedule:
 #  - cron: '*/10 * * * *' # 每10分钟执行一次（公开库每月2000分钟运行时长，每天64分钟）
@@ -11,7 +14,7 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
     - name: Fetch URLs in parallel
       # secrets设置，变量名称：http
