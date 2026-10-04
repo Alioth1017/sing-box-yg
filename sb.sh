@@ -134,8 +134,8 @@ fi
 v4v6(){
 v4=$(curl -s4m5 icanhazip.com -k)
 v6=$(curl -s6m5 icanhazip.com -k)
-v4dq=$(curl -s4m5 -k https://myip.ipip.net | awk -F'来自于：' '{print $2}' 2>/dev/null)
-#v4dq=$(curl -s4m5 -k https://ip.fm | sed -n 's/.*Location: //p' 2>/dev/null)
+#v4dq=$(curl -s4m5 -k https://myip.ipip.net | awk -F'来自于：' '{print $2}' 2>/dev/null)
+v4dq=$(curl -s4m5 -k https://ip.fm | sed -n 's/.*Location: //p' 2>/dev/null)
 v6dq=$(curl -s6m5 -k https://ip.fm | sed -n 's/.*Location: //p' 2>/dev/null)
 }
 warpcheck(){
@@ -292,10 +292,10 @@ red "生成bing自签证书失败" && exit
 fi
 echo
 if [[ -f /root/ygkkkca/cert.crt && -f /root/ygkkkca/private.key && -s /root/ygkkkca/cert.crt && -s /root/ygkkkca/private.key ]]; then
-yellow "经检测，之前已使用Acme-yg脚本申请过Acme域名证书：$(cat /root/ygkkkca/ca.log) "
-green "是否使用 $(cat /root/ygkkkca/ca.log) 域名证书？"
+yellow "经检测，之前已使用Acme-yg脚本申请过Acme域名IP证书：$(cat /root/ygkkkca/ca.log) "
+green "是否使用 $(cat /root/ygkkkca/ca.log) 域名IP证书？"
 yellow "1：否！使用自签的证书 (回车默认)"
-yellow "2：是！使用 $(cat /root/ygkkkca/ca.log) 域名证书"
+yellow "2：是！使用 $(cat /root/ygkkkca/ca.log) 域名IP证书"
 readp "请选择【1-2】：" menu
 if [ -z "$menu" ] || [ "$menu" = "1" ] ; then
 zqzs
@@ -303,9 +303,9 @@ else
 ymzs
 fi
 else
-green "如果你有解析完成的域名，是否申请一个Acme域名证书？"
+green "是否申请一个Acme域名IP证书？"
 yellow "1：否！继续使用自签的证书 (回车默认)"
-yellow "2：是！使用Acme-yg脚本申请Acme证书 (支持常规80端口模式与Dns API模式)"
+yellow "2：是！使用Acme-yg脚本申请Acme证书 (支持80端口域名IP证书模式与Dns API域名模式)"
 readp "请选择【1-2】：" menu
 if [ -z "$menu" ] || [ "$menu" = "1" ] ; then
 zqzs
@@ -1043,6 +1043,9 @@ fi
 ym=$(cat /root/ygkkkca/ca.log 2>/dev/null)
 hy2_sniname=$(sed 's://.*::g' /etc/s-box/sb.json | jq -r '.inbounds[2].tls.key_path')
 if [[ "$hy2_sniname" = '/etc/s-box/private.key' ]]; then
+SHA256=$(openssl x509 -in /etc/s-box/cert.pem -outform DER | sha256sum | awk '{print $1}')
+echo "$SHA256" > /etc/s-box/SHA256.txt
+SHA256=$(cat /etc/s-box/SHA256.txt)
 hy2_name=www.bing.com
 sb_hy2_ip=$server_ip
 cl_hy2_ip=$server_ipcl
@@ -1113,10 +1116,10 @@ white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vmess-ws(tls)+Argo 】临时节点信息如下(可选择3-8-3，自定义CDN优选地址)：" && sleep 2
 echo
 echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
-echo -e "${yellow}vmess://$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"8443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argo'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0)${plain}"
+echo -e "${yellow}vmess://$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argo'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0)${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
-echo 'vmess://'$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"8443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argo'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0) > /etc/s-box/vm_ws_argols.txt
+echo 'vmess://'$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argo'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argo'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0) > /etc/s-box/vm_ws_argols.txt
 qrencode -o - -t ANSIUTF8 "$(cat /etc/s-box/vm_ws_argols.txt)"
 fi
 if ps -ef 2>/dev/null | grep -q '[c]loudflared.*run'; then
@@ -1126,10 +1129,10 @@ white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 red "🚀【 vmess-ws(tls)+Argo 】固定节点信息如下 (可选择3-8-3，自定义CDN优选地址)：" && sleep 2
 echo
 echo "分享链接【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
-echo -e "${yellow}vmess://$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argogd'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"8443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argogd'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0)${plain}"
+echo -e "${yellow}vmess://$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argogd'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argogd'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0)${plain}"
 echo
 echo "二维码【v2rayn、v2rayng、nekobox、小火箭shadowrocket】"
-echo 'vmess://'$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argogd'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"8443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argogd'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0) > /etc/s-box/vm_ws_argogd.txt
+echo 'vmess://'$(echo '{"add":"'$vmadd_argo'","aid":"0","host":"'$argogd'","id":"'$uuid'","net":"ws","path":"'$ws_path'","port":"443","ps":"'vm-argo-$hostname'","tls":"tls","sni":"'$argogd'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0) > /etc/s-box/vm_ws_argogd.txt
 qrencode -o - -t ANSIUTF8 "$(cat /etc/s-box/vm_ws_argogd.txt)"
 fi
 echo
@@ -1161,7 +1164,8 @@ echo
 reshy2(){
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-hy2_link="hysteria2://$uuid@$sb_hy2_ip:$hy2_port?security=tls&alpn=h3&insecure=$ins_hy2&allowInsecure=$ins_hy2$hyps&sni=$hy2_name#hy2-$hostname"
+hy2_link="hysteria2://$uuid@$sb_hy2_ip:$hy2_port?security=tls&alpn=h3&insecure=0&allowInsecure=0$hyps&sni=$hy2_name&pinSHA256=$SHA256#hy2-$hostname"
+#hy2_link="hysteria2://$uuid@$sb_hy2_ip:$hy2_port?security=tls&alpn=h3&insecure=$ins_hy2&allowInsecure=$ins_hy2$hyps&sni=$hy2_name#hy2-$hostname"
 echo "$hy2_link" > /etc/s-box/hy2.txt
 red "🚀【 Hysteria-2 】节点信息如下：" && sleep 2
 echo
@@ -1177,7 +1181,7 @@ echo
 restu5(){
 echo
 white "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-tuic5_link="tuic://$uuid:$uuid@$sb_tu5_ip:$tu5_port?congestion_control=bbr&udp_relay_mode=native&alpn=h3&sni=$tu5_name&insecure=$ins&allowInsecure=$ins#tu5-$hostname"
+tuic5_link="tuic://$uuid:$uuid@$sb_tu5_ip:$tu5_port?congestion_control=bbr&udp_relay_mode=native&alpn=h3&sni=$tu5_name&insecure=$ins&allowInsecure=$ins&allow_insecure=$ins#tu5-$hostname"
 echo "$tuic5_link" > /etc/s-box/tuic5.txt
 red "🚀【 Tuic-v5 】节点信息如下：" && sleep 2
 echo
@@ -1268,154 +1272,157 @@ EOF
 sball(){
 cat <<EOF
 {
-    "log": {
-        "disabled": false,
-        "level": "info",
-        "timestamp": true
-    },
-    "experimental": {
-        "cache_file": {
-            "enabled": true,
-            "path": "./cache.db",
-            "store_fakeip": true
-        },
-        "clash_api": {
-            "external_controller": "127.0.0.1:9090",
-            "external_ui": "ui",
-            "default_mode": "Rule"
-        }
-    },
-    "dns": {
-        "servers": [
-            {
-                "tag": "aliDns",
-                "type": "https",
-                "server": "dns.alidns.com",
-                "path": "/dns-query",
-                "domain_resolver": "local"
-            },
-            {
-                "tag": "local",
-                "type": "udp",
-                "server": "223.5.5.5"
-            },
-            {
-                "tag": "proxyDns",
-                "type": "https",
-                "server": "dns.google",
-                "path": "/dns-query",
-	            "domain_resolver": "aliDns",
-                "detour": "proxy"
-            },
-           {
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "http_clients": [
+    {
+      "tag": "rule-set-direct"
+    }
+  ],
+  "dns": {
+    "servers": [
+      {
         "type": "fakeip",
         "tag": "fakeip",
         "inet4_range": "198.18.0.0/15",
         "inet6_range": "fc00::/18"
+      },
+      {
+        "type": "udp",
+        "tag": "dns-cn",
+        "server": "223.5.5.5",
+        "server_port": 53
+      },
+      {
+        "type": "https",
+        "tag": "dns-proxy",
+        "server": "dns.google",
+        "domain_resolver": "dns-cn",
+        "detour": "proxy"
       }
+    ],
+    "rules": [
+      {
+        "rule_set": [
+          "geosite-cn"
         ],
-        "rules": [
-            {
-                "rule_set": "geosite-cn",
-                "clash_mode": "Rule",
-                "server": "aliDns"
-            },
-            {
-                "clash_mode": "Direct",
-                "server": "local"
-            },
-            {
-                "clash_mode": "Global",
-                "server": "proxyDns"
-            },
-            {
+        "action": "route",
+        "server": "dns-cn"
+      },
+      {
         "query_type": [
           "A",
           "AAAA"
         ],
+        "action": "route",
         "server": "fakeip"
       }
-        ],
-        "final": "proxyDns",
-        "strategy": "prefer_ipv4"
-    },
-    "inbounds": [
-        {
-            "type": "tun",
-            "tag": "tun-in",
-            "address": [
-                "172.19.0.1/30",
-                "fd00::1/126"
-            ],
-            "auto_route": true,
-            "strict_route": true
-        }
     ],
-    "route": {
-        "rules": [
-            {
-	           "inbound": "tun-in",
-                "action": "sniff"
-            },
-            {
-                "type": "logical",
-                "mode": "or",
-                "rules": [
-                    {
-                        "port": 53
-                    },
-                    {
-                        "protocol": "dns"
-                    }
-                ],
-                "action": "hijack-dns"
-            },
-         {
-          "clash_mode": "Global",
-          "outbound": "proxy"
-         },
-        {
-        "rule_set": "geosite-cn",
-        "clash_mode": "Rule",
-        "outbound": "direct"
-       },
-     {
-    "rule_set": "geoip-cn",
-    "clash_mode": "Rule",
-    "outbound": "direct"
+    "final": "dns-proxy",
+    "strategy": "prefer_ipv4",
+    "cache_capacity": 8192,
+    "optimistic": {
+      "enabled": true,
+      "timeout": "1h"
+    },
+    "timeout": "10s",
+    "reverse_mapping": true
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "gvisor",
+      "mtu": 1420
+    }
+  ],
+  "route": {
+    "default_http_client": "rule-set-direct",
+    "default_domain_resolver": "dns-cn",
+    "auto_detect_interface": true,
+    "rule_set": [
+      {
+        "tag": "geosite-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/cn.srs"
       },
-     {
-    "ip_is_private": true,
-    "clash_mode": "Rule",
-    "outbound": "direct"
-    },
-     {
-      "clash_mode": "Direct",
-      "outbound": "direct"
-     }		
+      {
+        "tag": "geoip-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geoip/cn.srs"
+      }
+    ],
+    "rules": [
+      {
+        "inbound": [
+          "tun-in"
         ],
+        "protocol": [
+          "dns"
+        ],
+        "action": "hijack-dns"
+      },
+      {
+        "clash_mode": "Global",
+        "action": "route",
+        "outbound": "proxy"
+      },
+      {
+        "ip_is_private": true,
+        "action": "route",
+        "outbound": "direct"
+      },
+      {
         "rule_set": [
-            {
-                "tag": "geosite-cn",
-                "type": "remote",
-                "format": "binary",
-                "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/geolocation-cn.srs",
-                "download_detour": "direct"
-            },
-            {
-                "tag": "geoip-cn",
-                "type": "remote",
-                "format": "binary",
-                "url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geoip/cn.srs",
-                "download_detour": "direct"
-            }
+          "geosite-cn"
         ],
-        "final": "proxy",
-        "auto_detect_interface": true,
-        "default_domain_resolver": {
-            "server": "aliDns"
-        }
+        "action": "route",
+        "outbound": "direct"
+      },
+      {
+        "rule_set": [
+          "geoip-cn"
+        ],
+        "action": "route",
+        "outbound": "direct"
+      },
+      {
+        "clash_mode": "Direct",
+        "action": "route",
+        "outbound": "direct"
+      },
+      {
+        "network": [
+          "tcp",
+          "udp"
+        ],
+        "port": 853,
+        "action": "reject"
+      }
+    ],
+    "final": "proxy"
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "store_dns": true
     },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "external_ui": "ui",
+      "default_mode": "Rule"
+    }
+  },
   "outbounds": [
     {
       "type": "vless",
@@ -1451,7 +1458,6 @@ cat <<EOF
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1536,18 +1542,13 @@ dns:
     - "time.*.gov"
     - "pool.ntp.org"
     - "localhost.work.weixin.qq.com"
-  default-nameserver: ["223.5.5.5", "1.2.4.8"]
+  default-nameserver: ["223.5.5.5", "119.29.29.29"]
   nameserver:
-    - "https://208.67.222.222/dns-query"
     - "https://1.1.1.1/dns-query"
-    - "https://8.8.4.4/dns-query"
+    - "https://8.8.8.8/dns-query"
   proxy-server-nameserver:
     - "https://223.5.5.5/dns-query"
     - "https://doh.pub/dns-query"
-  nameserver-policy:
-    "geosite:private,cn":
-      - "https://223.5.5.5/dns-query"
-      - "https://doh.pub/dns-query"
 
 proxies:
 - name: vless-reality-vision-$hostname               
@@ -1616,7 +1617,7 @@ $(sball)
 $(sbany2)
 {
             "server": "$vmadd_argo",
-            "server_port": 8443,
+            "server_port": 443,
             "tag": "vmess-tls-argo固定-$hostname",
             "tls": {
                 "enabled": true,
@@ -1627,7 +1628,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1654,7 +1654,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1670,7 +1669,7 @@ $(sbany2)
         },
 {
             "server": "$vmadd_argo",
-            "server_port": 8443,
+            "server_port": 443,
             "tag": "vmess-tls-argo临时-$hostname",
             "tls": {
                 "enabled": true,
@@ -1681,7 +1680,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1708,7 +1706,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1755,7 +1752,8 @@ $(sbany1)
             ],
             "url": "http://www.gstatic.com/generate_204",
             "interval": "10m",
-            "tolerance": 50
+            "tolerance": 30,
+            "idle_timeout": "30m"
         },
         {
             "type": "direct",
@@ -1773,7 +1771,7 @@ $(clany2)
 - name: vmess-tls-argo固定-$hostname                         
   type: vmess
   server: $vmadd_argo                        
-  port: 8443                                     
+  port: 443                                     
   uuid: $uuid       
   alterId: 0
   cipher: auto
@@ -1806,7 +1804,7 @@ $(clany2)
 - name: vmess-tls-argo临时-$hostname                         
   type: vmess
   server: $vmadd_argo                        
-  port: 8443                                     
+  port: 443                                     
   uuid: $uuid       
   alterId: 0
   cipher: auto
@@ -1885,6 +1883,7 @@ proxy-groups:
     - vmess-argo临时-$hostname
 rules:
   - GEOIP,LAN,DIRECT
+  - GEOSITE,CN,DIRECT
   - GEOIP,CN,DIRECT
   - MATCH,🌍选择代理节点
 EOF
@@ -1895,7 +1894,7 @@ $(sball)
 $(sbany2)
 {
             "server": "$vmadd_argo",
-            "server_port": 8443,
+            "server_port": 443,
             "tag": "vmess-tls-argo临时-$hostname",
             "tls": {
                 "enabled": true,
@@ -1906,7 +1905,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1933,7 +1931,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -1976,7 +1973,8 @@ $(sbany1)
             ],
             "url": "http://www.gstatic.com/generate_204",
             "interval": "10m",
-            "tolerance": 50
+            "tolerance": 30,
+            "idle_timeout": "30m"
         },
         {
             "type": "direct",
@@ -2001,7 +1999,7 @@ $(clany2)
 - name: vmess-tls-argo临时-$hostname                         
   type: vmess
   server: $vmadd_argo                        
-  port: 8443                                     
+  port: 443                                     
   uuid: $uuid       
   alterId: 0
   cipher: auto
@@ -2074,6 +2072,7 @@ proxy-groups:
     - vmess-argo临时-$hostname
 rules:
   - GEOIP,LAN,DIRECT
+  - GEOSITE,CN,DIRECT
   - GEOIP,CN,DIRECT
   - MATCH,🌍选择代理节点
 EOF
@@ -2084,7 +2083,7 @@ $(sball)
 $(sbany2)
 {
             "server": "$vmadd_argo",
-            "server_port": 8443,
+            "server_port": 443,
             "tag": "vmess-tls-argo固定-$hostname",
             "tls": {
                 "enabled": true,
@@ -2095,7 +2094,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -2122,7 +2120,6 @@ $(sbany2)
                     "fingerprint": "chrome"
                 }
             },
-            "packet_encoding": "packetaddr",
             "transport": {
                 "headers": {
                     "Host": [
@@ -2165,7 +2162,8 @@ $(sbany1)
             ],
             "url": "http://www.gstatic.com/generate_204",
             "interval": "10m",
-            "tolerance": 50
+            "tolerance": 30,
+            "idle_timeout": "30m"
         },
         {
             "type": "direct",
@@ -2188,7 +2186,7 @@ $(clany2)
 - name: vmess-tls-argo固定-$hostname                         
   type: vmess
   server: $vmadd_argo                        
-  port: 8443                                     
+  port: 443                                     
   uuid: $uuid       
   alterId: 0
   cipher: auto
@@ -2261,6 +2259,7 @@ proxy-groups:
     - vmess-argo固定-$hostname
 rules:
   - GEOIP,LAN,DIRECT
+  - GEOSITE,CN,DIRECT
   - GEOIP,CN,DIRECT
   - MATCH,🌍选择代理节点
 EOF
@@ -2294,7 +2293,8 @@ $(sbany1)
             ],
             "url": "http://www.gstatic.com/generate_204",
             "interval": "10m",
-            "tolerance": 50
+            "tolerance": 30,
+            "idle_timeout": "30m"
         },
         {
             "type": "direct",
@@ -2347,6 +2347,7 @@ proxy-groups:
     $(clany1)
 rules:
   - GEOIP,LAN,DIRECT
+  - GEOSITE,CN,DIRECT
   - GEOIP,CN,DIRECT
   - MATCH,🌍选择代理节点
 EOF
@@ -2401,6 +2402,10 @@ if [ "$menu" = "1" ]; then
 cloudflaredargo
 readp "输入Argo固定隧道Token: " argotoken
 readp "输入Argo固定隧道域名: " argoym
+vm_port=$(sed 's://.*::g' /etc/s-box/sb.json | jq -r '.inbounds[1].listen_port')
+echo
+yellow "注意！Zero Trust设置固定隧道URL端口填写Vmess端口：localhost:$vm_port"
+echo
 pid=$(ps -ef 2>/dev/null | awk '/[c]loudflared.*run/ {print $2}')
 [ -n "$pid" ] && kill -9 "$pid" >/dev/null 2>&1
 echo
@@ -2442,9 +2447,9 @@ fi
 fi
 echo ${argoym} > /etc/s-box/sbargoym.log
 echo ${argotoken} > /etc/s-box/sbargotoken.log
-argo=$(cat /etc/s-box/sbargoym.log 2>/dev/null)
+argosh=$(cat /etc/s-box/sbargoym.log 2>/dev/null)
 sbshare > /dev/null 2>&1
-blue "Argo固定隧道设置完成，固定域名：$argo"
+blue "Argo固定隧道设置完成，固定域名：$argosh"
 elif [ "$menu" = "2" ]; then
 if pidof systemd >/dev/null 2>&1; then
 systemctl stop argo >/dev/null 2>&1
@@ -3179,8 +3184,10 @@ green "推荐使用稳定的世界大厂或组织的官方CDN域名作为CDN优�
 blue "cloudflare-ech.com"
 blue "www.visa.com.sg"
 blue "www.wto.org"
-blue "www.web.com"
-blue "yg1.ygkkk.dpdns.org (yg1中的1，可换为1-13中任意数字，甬哥维护)"
+blue "www.shopify.com"
+blue "yg1.ygkkk.dpdns.org (yg1中的1，可换为1-13中任意数字)"
+echo
+yellow "恢复默认操作：选项1设置为VPS的IP或者解析的域名，选项2设置为www.bing.com或者解析的域名"
 echo
 yellow "1：自定义Vmess-ws(tls)主协议节点的CDN优选地址"
 yellow "2：针对选项1，重置客户端host/sni域名(IP解析到CF上的域名)"
@@ -3541,8 +3548,8 @@ echo
 [[ "$sbnh" == "1.10" ]] && blue "当前Sing-box内核支持geosite分流方式" || blue "当前Sing-box内核不支持geosite分流方式，仅支持分流2、3、5、6选项"
 echo
 yellow "注意："
-yellow "一、完整域名方式只能填完整域名 (例：谷歌网站填写：www.google.com)"
-yellow "二、geosite方式须填写geosite规则名 (例：奈飞填写:netflix ；迪士尼填写:disney ；ChatGPT填写:openai ；全局且绕过中国填写:geolocation-!cn)"
+yellow "一、后缀域名方式只能填域名 (例：谷歌网站填写：google.com googleapis.com)"
+yellow "二、geosite方式须填写geosite规则名 (例：奈飞填写netflix ；迪士尼填写disney ；ChatGPT填写openai ；全局且绕过中国填写geolocation-!cn)"
 yellow "三、同一个完整域名或者geosite切勿重复分流"
 yellow "四、如分流通道中有个别通道无网络，所填分流为黑名单模式，即屏蔽该网站访问"
 changef
@@ -3565,9 +3572,9 @@ readp "请选择：" menu
 
 if [ "$menu" = "1" ]; then
 if [[ "$sbnh" == "1.10" ]]; then
-readp "1：使用完整域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
+readp "1：使用后缀域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
 if [ "$menu" = "1" ]; then
-readp "每个域名之间留空格，回车跳过表示重置清空warp-wireguard-ipv4的完整域名方式的分流通道)：" w4flym
+readp "每个域名之间留空格，回车跳过表示重置清空warp-wireguard-ipv4的后缀域名方式的分流通道)：" w4flym
 if [ -z "$w4flym" ]; then
 w4flym='"yg_kkk"'
 else
@@ -3596,9 +3603,9 @@ yellow "遗憾！当前暂时只支持warp-wireguard-ipv6，如需要warp-wiregu
 fi
 
 elif [ "$menu" = "2" ]; then
-readp "1：使用完整域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
+readp "1：使用后缀域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
 if [ "$menu" = "1" ]; then
-readp "每个域名之间留空格，回车跳过表示重置清空warp-wireguard-ipv6的完整域名方式的分流通道：" w6flym
+readp "每个域名之间留空格，回车跳过表示重置清空warp-wireguard-ipv6的后缀域名方式的分流通道：" w6flym
 if [ -z "$w6flym" ]; then
 w6flym='"yg_kkk"'
 else
@@ -3631,9 +3638,9 @@ changef
 fi
 
 elif [ "$menu" = "3" ]; then
-readp "1：使用完整域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
+readp "1：使用后缀域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
 if [ "$menu" = "1" ]; then
-readp "每个域名之间留空格，回车跳过表示重置清空warp-socks5-ipv4的完整域名方式的分流通道：" s4flym
+readp "每个域名之间留空格，回车跳过表示重置清空warp-socks5-ipv4的后缀域名方式的分流通道：" s4flym
 if [ -z "$s4flym" ]; then
 s4flym='"yg_kkk"'
 else
@@ -3667,9 +3674,9 @@ fi
 
 elif [ "$menu" = "4" ]; then
 if [[ "$sbnh" == "1.10" ]]; then
-readp "1：使用完整域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
+readp "1：使用后缀域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
 if [ "$menu" = "1" ]; then
-readp "每个域名之间留空格，回车跳过表示重置清空warp-socks5-ipv6的完整域名方式的分流通道：" s6flym
+readp "每个域名之间留空格，回车跳过表示重置清空warp-socks5-ipv6的后缀域名方式的分流通道：" s6flym
 if [ -z "$s6flym" ]; then
 s6flym='"yg_kkk"'
 else
@@ -3699,9 +3706,9 @@ fi
 
 elif [ "$menu" = "5" ]; then
 if [[ "$sbnh" == "1.10" ]]; then
-readp "1：使用完整域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
+readp "1：使用后缀域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
 if [ "$menu" = "1" ]; then
-readp "每个域名之间留空格，回车跳过表示重置清空VPS本地ipv4的完整域名方式的分流通道：" ad4flym
+readp "每个域名之间留空格，回车跳过表示重置清空VPS本地ipv4的后缀域名方式的分流通道：" ad4flym
 if [ -z "$ad4flym" ]; then
 ad4flym='"yg_kkk"'
 else
@@ -3735,9 +3742,9 @@ fi
 
 elif [ "$menu" = "6" ]; then
 if [[ "$sbnh" == "1.10" ]]; then
-readp "1：使用完整域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
+readp "1：使用后缀域名方式\n2：使用geosite方式\n3：返回上层\n请选择：" menu
 if [ "$menu" = "1" ]; then
-readp "每个域名之间留空格，回车跳过表示重置清空VPS本地ipv6的完整域名方式的分流通道：" ad6flym
+readp "每个域名之间留空格，回车跳过表示重置清空VPS本地ipv6的后缀域名方式的分流通道：" ad6flym
 if [ -z "$ad6flym" ]; then
 ad6flym='"yg_kkk"'
 else
@@ -4328,10 +4335,10 @@ white "-------------------------------------------------------------------------
 green " 9. 刷新并查看节点 【Mihomo/SFA+SFI+SFW三合一配置/订阅链接/推送TG通知】"
 green "10. 查看 Sing-box 运行日志"
 green "11. 一键原版BBR+FQ加速"
-green "12. 管理 Acme 申请域名证书"
+green "12. 管理 Acme 申请域名IP证书"
 green "13. 管理 Warp 查看Netflix/ChatGPT解锁情况"
 green "14. 添加 WARP-plus-Socks5 代理模式 【本地Warp/多地区Psiphon-VPN】"
-green "15. 刷新本地IP、调整IPV4/IPV6配置输出"
+green "15. 更换IP刷新本地IP、调整IPV4/IPV6配置输出"
 white "----------------------------------------------------------------------------------"
 green "16. Sing-box-yg脚本使用说明书"
 white "----------------------------------------------------------------------------------"
